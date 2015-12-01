@@ -11,6 +11,8 @@ $ export NEO4J_PASSWORD=password
 
 Or, set `dbms.security.auth_enabled=false` in `conf/neo4j-server.properties`.
 
+Add the export to venv in the next step is also a good way to use in development environment.
+
 ```
 pip install virtualenv
 virtualenv venv
