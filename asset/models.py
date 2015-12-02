@@ -5,13 +5,14 @@ import os
 import uuid
 
 url = os.environ.get('GRAPHENEDB_URL', 'http://localhost:7474')
-username = os.environ.get('NEO4J_USERNAME')
-password = os.environ.get('NEO4J_PASSWORD')
+u = os.environ.get('NEO4J_USERNAME')
+p = os.environ.get('NEO4J_PASSWORD')
 
-if username and password:
-    authenticate(url.strip('http://'), username, password)
+if u and p:
+    authenticate(url.strip('http://'), u, p)
 
 graph = Graph(url + '/db/data/')
+
 
 class User:
     def __init__(self, username):
@@ -38,33 +39,47 @@ class User:
 
     def add_asset(self, name, asset_id, specs):
         user = self.find()
-        asset = Node(
-            "Asset",
-            id=str(uuid.uuid4()),
-            name=name,
-            asset_id=asset_id,
-            timestamp=timestamp(),
-            date=date()
-        )
-        rel = Relationship(user, "OWNS", asset)
-        graph.create(rel)
-
-        specs = [x.strip() for x in specs.split('|')]
-        for t in set(specs):
-            spec = graph.merge_one("Spec", "name", t)
-            rel = Relationship(spec, "APPLIES_TO", asset)
-            graph.create(rel)
+        asset = Asset(asset_id=asset_id)
+        asset.add(user, name, specs)
 
     def get_assets(self):
         query = """
         MATCH (user:User)-[:OWNS]->(asset:Asset)<-[:APPLIES_TO]-(spec:Spec)
         WHERE user.username = {username}
         RETURN asset, COLLECT(spec.name) AS specs
-        ORDER BY asset.asset_id DESC LIMIT 20
+        ORDER BY asset.asset_id DESC
         """
-        # In general one user won't own many assets.
-        # Limit for performance in case.
         return graph.cypher.execute(query, username=self.username)
+
+
+class Asset:
+    def __init__(self, asset_id):
+        self.asset_id = asset_id
+
+    def find(self):
+        asset = graph.find_one("Asset", "asset_id", self.asset_id)
+        return asset
+
+    def add(self, user, name, specs):
+        asset = self.find()
+        if not asset:
+            asset = Node(
+                "Asset",
+                id=str(uuid.uuid4()),
+                name=name,
+                asset_id=self.asset_id,
+                timestamp=timestamp(),
+                date=date()
+            )
+            rel = Relationship(user, "OWNS", asset)
+            graph.create(rel)
+
+            specs = [x.strip() for x in specs.split('|')]
+            for t in set(specs):
+                spec = graph.merge_one("Spec", "name", t)
+                rel = Relationship(spec, "APPLIES_TO", asset)
+                graph.create(rel)
+
 
 def get_recent_assets():
     query = """
@@ -75,11 +90,22 @@ def get_recent_assets():
 
     return graph.cypher.execute(query)
 
+
+def get_asset_by_id(asset_id):
+    query = """
+    MATCH (user:User)-[:OWNS]->(asset:Asset)<-[:APPLIES_TO]-(spec:Spec)
+    WHERE asset.asset_id = {asset_id}
+    RETURN user.username AS username, asset, COLLECT(spec.name) AS specs
+    """
+    return graph.cypher.execute(query, asset_id=asset_id)
+
+
 def timestamp():
     epoch = datetime.utcfromtimestamp(0)
     now = datetime.now()
     delta = now - epoch
     return delta.total_seconds()
+
 
 def date():
     return datetime.now().strftime('%F')
