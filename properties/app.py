@@ -5,7 +5,7 @@
 from flask import Flask
 from flask_restplus import Api, Resource
 
-from models import graph, query_on_constraint
+from models import graph, query_on_constraint, list_all
 
 # Settings
 DEBUG = False
@@ -19,9 +19,14 @@ NS = API.namespace('query')
 
 # API
 @NS.route('/view/<string:constraint>')
-class ViewFile(Resource):
+class View(Resource):
     def get(self, constraint):
         return query_on_constraint(constraint)
+
+@NS.route('/list')
+class List(Resource):
+    def get(self):
+        return list_all()
 
 if __name__ == '__main__':
     graph.schema.create_uniqueness_constraint('Label', 'Constraint')
