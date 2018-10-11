@@ -1,6 +1,6 @@
 import os
 
-from py2neo.database import Graph, NodeMatcher
+from py2neo.database import Graph
 
 h = os.environ.get('GRAPHENEDB_HOST', 'localhost')
 u = os.environ.get('NEO4J_USERNAME', 'neo4j')
@@ -11,4 +11,8 @@ graph = Graph(host=h, user=u, password=p)
 
 def query_on_constraint(constraint):
     matcher = NodeMatcher(graph)
-    return matcher.match('Label', Constraint=constraint).first()
+    return graph.nodes.match('Label', Constraint=constraint).first()
+
+
+def list_all():
+    return list(graph.nodes.match('Label'))
